@@ -15,6 +15,8 @@ import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   signOut,
+  updatePassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
@@ -55,6 +57,19 @@ export default function FeiraApp() {
   const [newUserPassword, setNewUserPassword] = useState("");
   const [newUserFullName, setNewUserFullName] = useState("");
 
+  // Novo estado para controle da página de usuários cadastrados
+  const [showUsersPage, setShowUsersPage] = useState(false);
+  const [usuarios, setUsuarios] = useState([]);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [userRecebimentos, setUserRecebimentos] = useState([]);
+
+  // Estados para edição de usuário
+  const [isEditingUser, setIsEditingUser] = useState(false);
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserFullName, setEditUserFullName] = useState("");
+  const [editUserPassword, setEditUserPassword] = useState("");
+
   useEffect(() => {
     async function createDefaultUser() {
       try {
@@ -72,9 +87,120 @@ export default function FeiraApp() {
 
     onAuthStateChanged(auth, (user) => {
       setUser(user);
-      if (user) fetchBancas();
+      if (user) {
+        fetchBancas();
+        if (user.email === "felipe@ipu.com") {
+          fetchUsuarios();
+        }
+      }
     });
   }, []);
+
+  const fetchUsuarios = async () => {
+    setLoadingUsuarios(true);
+    try {
+      const snapshot = await getDocs(collection(db, "usuarios"));
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUsuarios(list);
+    } catch (err) {
+      alert("Erro ao buscar usuários: " + err.message);
+    }
+    setLoadingUsuarios(false);
+  };
+
+  const fetchUserRecebimentos = async (userId) => {
+    try {
+      const recebimentosRef = collection(db, "usuarios", userId, "recebimentos");
+      const snapshot = await getDocs(recebimentosRef);
+      const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setUserRecebimentos(list);
+    } catch (err) {
+      alert("Erro ao buscar histórico de recebimentos: " + err.message);
+    }
+  };
+
+  const saveRecebimento = async (userId, banca) => {
+    try {
+      const recebimentosRef = collection(db, "usuarios", userId, "recebimentos");
+      const now = new Date();
+      await addDoc(recebimentosRef, {
+        bancaNumero: banca.numero,
+        valorPago: "25.00",
+        data: now.toISOString(),
+      });
+    } catch (err) {
+      alert("Erro ao salvar recebimento: " + err.message);
+    }
+  };
+
+  const generatePrintContent = (banca, user) => {
+    const now = new Date();
+    return `
+      <html>
+        <head>
+          <style>
+            @media print {
+              @page {
+                size: 80mm auto;
+                margin: 2mm;
+              }
+              body {
+                font-family: Arial, sans-serif;
+                font-size: 11px;
+                width: 80mm;
+                margin: 0;
+                padding: 0;
+                text-align: center;
+              }
+              .numero-banca {
+                font-size: 22px;
+                font-weight: bold;
+                margin-bottom: 6px;
+              }
+              .comprovante {
+                margin-top: 6px;
+              }
+              .recebido-por {
+                margin-top: 10px;
+                font-size: 10px;
+                font-style: italic;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="numero-banca">Banca</div>
+          <div class="numero-banca">Nº ${banca.numero}</div>
+          <div class="comprovante">
+            <p>Data: ${now.toLocaleDateString()}</p>
+            <p>Valor Pago: R$ ${parseFloat(banca.aluguel).toFixed(2)}</p>
+            <p class="recebido-por">Recebido por: ${user ? user.email : "Usuário desconhecido"}</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
+  const printComprovante = async (banca) => {
+    const printContent = generatePrintContent(banca, user);
+    const newWindow = window.open("", "_blank");
+    if (newWindow) {
+      newWindow.document.write(printContent);
+      newWindow.document.close();
+      newWindow.focus();
+      try {
+        newWindow.print();
+      } catch (error) {
+        alert("Erro ao tentar imprimir. Por favor, tente imprimir manualmente.");
+      }
+      // Não fechar a janela automaticamente para permitir impressão manual em dispositivos móveis
+      // newWindow.close();
+      // Salvar histórico de recebimentos para o usuário logado
+      await saveRecebimento(user.uid, banca);
+    } else {
+      alert("Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativado.");
+    }
+  };
 
   async function fetchBancas() {
     const snapshot = await getDocs(collection(db, "bancas"));
@@ -135,62 +261,6 @@ export default function FeiraApp() {
     setLoading(false);
   }
 
-  const generatePrintContent = (banca) => {
-    const now = new Date();
-    return `
-      <html>
-        <head>
-          <style>
-            @media print {
-              @page {
-                size: 80mm auto;
-                margin: 2mm;
-              }
-              body {
-                font-family: Arial, sans-serif;
-                font-size: 11px;
-                width: 80mm;
-                margin: 0;
-                padding: 0;
-                text-align: center;
-              }
-              .numero-banca {
-                font-size: 22px;
-                font-weight: bold;
-                margin-bottom: 6px;
-              }
-              .comprovante {
-                margin-top: 6px;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="numero-banca">Banca</div>
-          <div class="numero-banca">Nº ${banca.numero}</div>
-          <div class="comprovante">
-            <p>Data: ${now.toLocaleDateString()}</p>
-            <p>Valor Pago: R$ ${parseFloat(banca.aluguel).toFixed(2)}</p>
-          </div>
-        </body>
-      </html>
-    `;
-  };
-
-  const printComprovante = (banca) => {
-    const printContent = generatePrintContent(banca);
-    const newWindow = window.open("", "_blank");
-    if (newWindow) {
-      newWindow.document.write(printContent);
-      newWindow.document.close();
-      newWindow.focus();
-      newWindow.print();
-      newWindow.close();
-    } else {
-      alert("Não foi possível abrir a janela de impressão. Verifique se o bloqueador de pop-ups está ativado.");
-    }
-  };
-
   const handleChangeStatus = async (banca, newStatus) => {
     if (newStatus === "Pago") {
       const confirm = window.confirm("Deseja realmente marcar como pago?");
@@ -199,9 +269,16 @@ export default function FeiraApp() {
         const bancaRef = doc(db, "bancas", banca.id);
         await updateDoc(bancaRef, { status: newStatus });
         fetchBancas();
+        if (user) {
+          await saveRecebimento(user.uid, banca);
+        }
         printComprovante(banca);
       } catch (err) {
-        alert("Erro ao alterar status: " + err.message);
+        if (err.code === "permission-denied") {
+          alert("Permissão negada: você não tem autorização para alterar o status.");
+        } else {
+          alert("Erro ao alterar status: " + err.message);
+        }
       }
     } else {
       try {
@@ -209,9 +286,235 @@ export default function FeiraApp() {
         await updateDoc(bancaRef, { status: newStatus });
         fetchBancas();
       } catch (err) {
-        alert("Erro ao alterar status: " + err.message);
+        if (err.code === "permission-denied") {
+          alert("Permissão negada: você não tem autorização para alterar o status.");
+        } else {
+          alert("Erro ao alterar status: " + err.message);
+        }
       }
     }
+  };
+
+  // Função para cadastrar nova banca
+  const handleCadastrarBanca = async (e) => {
+    e.preventDefault();
+    if (!numeroValido) {
+      alert("Número da banca já existe. Escolha outro número.");
+      return;
+    }
+    const formData = new FormData(e.target);
+    const numero = formData.get("numero");
+    const proprietario = formData.get("proprietario");
+    try {
+      await addDoc(collection(db, "bancas"), {
+        numero,
+        proprietario,
+        status: "",
+        aluguel: 25.00,
+        lastPayment: null,
+      });
+      setShowForm(false);
+      setNewNumero("");
+      fetchBancas();
+    } catch (err) {
+      alert("Erro ao cadastrar banca: " + err.message);
+    }
+  };
+
+  // Função para salvar edição da banca
+  const handleSalvarEdicao = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const numero = formData.get("numero");
+    const proprietario = formData.get("proprietario");
+    const aluguel = parseFloat(formData.get("aluguel"));
+    if (isNaN(aluguel) || aluguel < 0) {
+      alert("Valor do aluguel inválido.");
+      return;
+    }
+    try {
+      const bancaRef = doc(db, "bancas", selectedBanca.id);
+      await updateDoc(bancaRef, {
+        numero,
+        proprietario,
+        aluguel,
+      });
+      setIsEditing(false);
+      fetchBancas();
+    } catch (err) {
+      alert("Erro ao salvar edição: " + err.message);
+    }
+  };
+
+  // Função para cadastrar novo usuário
+  const handleUserRegister = async (e) => {
+    e.preventDefault();
+    // Validação para impedir nome de usuário duplicado
+    if (usuarios.some(u => u.fullName === newUserFullName)) {
+      alert("Nome de usuário já existe. Escolha outro nome.");
+      return;
+    }
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
+      const user = userCredential.user;
+      await addDoc(collection(db, "usuarios"), {
+        uid: user.uid,
+        email: newUserEmail,
+        fullName: newUserFullName,
+      });
+      setShowUserRegisterForm(false);
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserFullName("");
+      fetchUsuarios();
+    } catch (err) {
+      alert("Erro ao cadastrar usuário: " + err.message);
+    }
+  };
+
+  // Componente para exibir usuários cadastrados e seus recebimentos
+  const UsersPage = () => {
+    return (
+      <div>
+        <h2 className="text-2xl font-bold mb-4">Usuários Cadastrados</h2>
+        {loadingUsuarios ? (
+          <p>Carregando usuários...</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {usuarios.map((usuario) => (
+              <Card key={usuario.id} className="p-4">
+                <h3 className="font-semibold mb-2">{usuario.fullName || usuario.email}</h3>
+                <p>Email: {usuario.email}</p>
+                <div className="mt-4 space-x-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedUser(usuario);
+                      setEditUserEmail(usuario.email || "");
+                      setEditUserFullName(usuario.fullName || "");
+                      setEditUserPassword("");
+                      setIsEditingUser(true);
+                    }}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={async () => {
+                      if (window.confirm("Tem certeza que deseja excluir este usuário?")) {
+                        try {
+                          await deleteDoc(doc(db, "usuarios", usuario.id));
+                          fetchUsuarios();
+                        } catch (err) {
+                          alert("Erro ao excluir usuário: " + err.message);
+                        }
+                      }
+                    }}
+                  >
+                    Excluir
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+        <div className="mt-4">
+          <Button onClick={() => setShowUsersPage(false)}>Voltar</Button>
+        </div>
+
+        {/* Formulário para editar usuário */}
+        {isEditingUser && selectedUser && (
+          <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                try {
+                  // Atualizar dados no Firestore
+                  const userRef = doc(db, "usuarios", selectedUser.id);
+                  await updateDoc(userRef, {
+                    email: editUserEmail,
+                    fullName: editUserFullName,
+                  });
+
+                  // Atualizar senha se for o usuário logado e senha foi alterada
+                  if (user.uid === selectedUser.uid && editUserPassword.trim() !== "") {
+                    await updatePassword(user, editUserPassword);
+                  } else if (editUserPassword.trim() !== "") {
+                    alert("Não é possível alterar a senha de outro usuário.");
+                  }
+
+                  setIsEditingUser(false);
+                  setSelectedUser(null);
+                  fetchUsuarios();
+                } catch (err) {
+                  alert("Erro ao salvar usuário: " + err.message);
+                }
+              }}
+              className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4 shadow-lg overflow-auto max-h-full"
+            >
+              <h2 className="text-xl font-bold mb-4">Editar Usuário</h2>
+              <Input
+                type="email"
+                name="email"
+                placeholder="Email"
+                required
+                value={editUserEmail}
+                onChange={(e) => setEditUserEmail(e.target.value)}
+              />
+              <Input
+                type="text"
+                name="fullName"
+                placeholder="Nome Completo"
+                required
+                value={editUserFullName}
+                onChange={(e) => setEditUserFullName(e.target.value)}
+              />
+              <Input
+                type="text"
+                name="password"
+                placeholder="Senha (deixe em branco para não alterar)"
+                value={editUserPassword}
+                onChange={(e) => setEditUserPassword(e.target.value)}
+              />
+              {user.email === "felipe@ipu.com" && (
+                <div className="mb-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={async () => {
+                      try {
+                        await sendPasswordResetEmail(auth, editUserEmail);
+                        alert("Link de redefinição de senha enviado para " + editUserEmail);
+                      } catch (error) {
+                        alert("Erro ao enviar link de redefinição de senha: " + error.message);
+                      }
+                    }}
+                  >
+                    Enviar link de redefinição de senha
+                  </Button>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row justify-end gap-4">
+                <Button type="submit" className="w-full sm:w-auto">Salvar</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditingUser(false);
+                    setSelectedUser(null);
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const handleLogin = async (e) => {
@@ -223,84 +526,6 @@ export default function FeiraApp() {
     } catch (err) {
       console.error("Erro no login:", err);
       alert("Login falhou: " + err.message);
-    }
-  };
-
-  // Nova função para cadastrar usuários (visível só para felipe@ipu.com)
-  const handleUserRegister = async (e) => {
-    e.preventDefault();
-    if (!newUserEmail || !newUserPassword || !newUserFullName) {
-      alert("Por favor, preencha todos os campos.");
-      return;
-    }
-    try {
-      // Forçar atualização do token para garantir claims atualizadas
-      await auth.currentUser.getIdToken(true);
-
-      const userCredential = await createUserWithEmailAndPassword(auth, newUserEmail, newUserPassword);
-      const newUser = userCredential.user;
-      // Salvar nome completo no Firestore
-      await addDoc(collection(db, "usuarios"), {
-        uid: newUser.uid,
-        email: newUserEmail,
-        fullName: newUserFullName,
-      });
-      alert("Usuário cadastrado com sucesso!");
-      setShowUserRegisterForm(false);
-      setNewUserEmail("");
-      setNewUserPassword("");
-      setNewUserFullName("");
-    } catch (err) {
-      alert("Erro ao cadastrar usuário: " + err.message);
-    }
-  };
-
-const handleCadastrarBanca = async (e) => {
-    e.preventDefault();
-    if (!numeroValido) {
-      alert("Número da banca já está em uso. Por favor, escolha outro número.");
-      return;
-    }
-    const numero = e.target.numero.value;
-    const proprietario = e.target.proprietario.value;
-    const aluguel = "25.00";
-    try {
-      const bancasRef = collection(db, "bancas");
-      const querySnapshot = await getDocs(bancasRef);
-      const exists = querySnapshot.docs.some(doc => doc.data().numero === numero);
-      if (exists) {
-        alert("Já existe uma banca cadastrada com esse número.");
-        return;
-      }
-      await addDoc(bancasRef, {
-        numero,
-        proprietario,
-        aluguel,
-        lastPayment: "",
-      });
-      fetchBancas();
-      setShowForm(false);
-      setNewNumero("");
-      setNumeroValido(true);
-    } catch (err) {
-      alert("Erro ao cadastrar banca: " + err.message);
-    }
-  };
-
-  const handleSalvarEdicao = async (e) => {
-    e.preventDefault();
-    try {
-      const bancaRef = doc(db, "bancas", selectedBanca.id);
-      await updateDoc(bancaRef, {
-        numero: editNumero,
-        proprietario: editProprietario,
-        aluguel: editAluguel,
-      });
-      fetchBancas();
-      setIsEditing(false);
-      setSelectedBanca(null);
-    } catch (err) {
-      alert("Erro ao salvar edição: " + err.message);
     }
   };
 
@@ -328,82 +553,91 @@ const handleCadastrarBanca = async (e) => {
           <Button className="w-full sm:w-auto" variant="outline" onClick={() => signOut(auth)}>Sair</Button>
           {/* Botão para cadastrar novo usuário, só para felipe@ipu.com */}
           {user.email === "felipe@ipu.com" && (
-            <Button className="w-full sm:w-auto" onClick={() => setShowUserRegisterForm(true)}>Cadastrar Novo Usuário</Button>
+            <>
+              <Button className="w-full sm:w-auto" onClick={() => setShowUserRegisterForm(true)}>Cadastrar Novo Usuário</Button>
+              <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setShowUsersPage(true)}>Página de Usuários</Button>
+            </>
           )}
         </div>
       </header>
       <main>
-        <Input
-          className="mb-6 w-full max-w-lg mx-auto block"
-          placeholder="Buscar banca pelo número"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredBancas.map((banca) => (
-            <Card
-              key={banca.id}
-              className="cursor-pointer flex flex-col items-center text-center p-3"
-              onClick={() => {
-                setSelectedBanca(banca);
-                setShowDetails(true);
-              }}
-            >
-              <div className="text-xl sm:text-2xl font-semibold mb-2">Nº {banca.numero}</div>
-              <div className={`text-white text-xs sm:text-sm px-3 py-1 rounded inline-block w-max ${banca.color} mb-3`}>
-                {banca.status}
-              </div>
-              <div className="space-x-2">
-                {(banca.status === "Pendente" || banca.status === "Atrasado" || banca.status === "") && (
-                  <Button
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleChangeStatus(banca, "Pago");
-                    }}
-                    disabled={banca.status === "Pago"}
-                  >
-                    Marcar como Pago
-                  </Button>
-                )}
-              </div>
-              <div className="mt-3 space-x-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.stopPropagation();
+        {showUsersPage ? (
+          <UsersPage />
+        ) : (
+          <>
+            <Input
+              className="mb-6 w-full max-w-lg mx-auto block"
+              placeholder="Buscar banca pelo número"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredBancas.map((banca) => (
+                <Card
+                  key={banca.id}
+                  className="cursor-pointer flex flex-col items-center text-center p-3"
+                  onClick={() => {
                     setSelectedBanca(banca);
-                    setIsEditing(true);
-                    setEditNumero(banca.numero);
-                    setEditProprietario(banca.proprietario);
-                    setEditAluguel(banca.aluguel || "");
-                    setShowDetails(false);
+                    setShowDetails(true);
                   }}
                 >
-                  Editar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    if (window.confirm("Tem certeza que deseja excluir esta banca?")) {
-                      try {
-                        await deleteDoc(doc(db, "bancas", banca.id));
-                        fetchBancas();
-                      } catch (err) {
-                        alert("Erro ao excluir banca: " + err.message);
-                      }
-                    }
-                  }}
-                >
-                  Excluir
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+                  <div className="text-xl sm:text-2xl font-semibold mb-2">Nº {banca.numero}</div>
+                  <div className={`text-white text-xs sm:text-sm px-3 py-1 rounded inline-block w-max ${banca.color} mb-3`}>
+                    {banca.status}
+                  </div>
+                  <div className="space-x-2">
+                    {(banca.status === "Pendente" || banca.status === "Atrasado" || banca.status === "") && (
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleChangeStatus(banca, "Pago");
+                        }}
+                        disabled={banca.status === "Pago"}
+                      >
+                        Marcar como Pago
+                      </Button>
+                    )}
+                  </div>
+                  <div className="mt-3 space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedBanca(banca);
+                        setIsEditing(true);
+                        setEditNumero(banca.numero);
+                        setEditProprietario(banca.proprietario);
+                        setEditAluguel(banca.aluguel || "");
+                        setShowDetails(false);
+                      }}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (window.confirm("Tem certeza que deseja excluir esta banca?")) {
+                          try {
+                            await deleteDoc(doc(db, "bancas", banca.id));
+                            fetchBancas();
+                          } catch (err) {
+                            alert("Erro ao excluir banca: " + err.message);
+                          }
+                        }
+                      }}
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
+        )}
       </main>
 
       {/* Formulário para cadastrar nova banca */}
@@ -509,12 +743,12 @@ const handleCadastrarBanca = async (e) => {
                 <p><strong>Valor do Aluguel Semanal:</strong> R$ {aluguel.toFixed(2)}</p>
                 <p><strong>Data do Comprovante:</strong> {now.toLocaleDateString()}</p>
                 {selectedBanca.status === "Pago" ? (
-                  <p><strong>Valor Pago:</strong> R$ {aluguel.toFixed(2)}</p>
+                  <p><strong>Valor Pago:</strong> R$ 25,00</p>
                 ) : (
                   <>
                     <p><strong>Semanas Atrasadas:</strong> {weeksLate}</p>
-                    <p><strong>Valor Unitário da Semana:</strong> R$ {aluguel.toFixed(2)}</p>
-                    <p><strong>Valor Total a Pagar:</strong> R$ {totalDue.toFixed(2)}</p>
+                    <p><strong>Valor Unitário da Semana:</strong> R$ 25,00</p>
+                    <p><strong>Valor Total a Pagar:</strong> R$ {(weeksLate * 25).toFixed(2)}</p>
                   </>
                 )}
                 <div className="flex justify-end mt-4">
