@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import {
@@ -321,26 +320,26 @@ const handleCadastrarBanca = async (e) => {
   }
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-5xl font-extrabold text-gray-900">Gerenciamento de Bancas</h1>
-        <div className="space-x-4">
-          <Button onClick={() => setShowForm(true)}>Cadastrar Nova Banca</Button>
-          <Button variant="outline" onClick={() => signOut(auth)}>Sair</Button>
+    <div className="p-4 max-w-full mx-auto">
+      <header className="flex flex-col sm:flex-row justify-between items-center mb-6 space-y-4 sm:space-y-0">
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-gray-900 text-center sm:text-left">Gerenciamento de Bancas</h1>
+        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+          <Button className="w-full sm:w-auto" onClick={() => setShowForm(true)}>Cadastrar Nova Banca</Button>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => signOut(auth)}>Sair</Button>
           {/* Botão para cadastrar novo usuário, só para felipe@ipu.com */}
           {user.email === "felipe@ipu.com" && (
-            <Button onClick={() => setShowUserRegisterForm(true)}>Cadastrar Novo Usuário</Button>
+            <Button className="w-full sm:w-auto" onClick={() => setShowUserRegisterForm(true)}>Cadastrar Novo Usuário</Button>
           )}
         </div>
       </header>
       <main>
         <Input
-          className="mb-8 w-full max-w-lg"
+          className="mb-6 w-full max-w-lg mx-auto block"
           placeholder="Buscar banca pelo número"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredBancas.map((banca) => (
             <Card
               key={banca.id}
@@ -350,11 +349,11 @@ const handleCadastrarBanca = async (e) => {
                 setShowDetails(true);
               }}
             >
-              <div className="text-2xl font-semibold mb-3">Nº {banca.numero}</div>
-              <div className={`text-white text-sm px-4 py-1 rounded inline-block w-max ${banca.color} mb-4`}>
+              <div className="text-xl sm:text-2xl font-semibold mb-2">Nº {banca.numero}</div>
+              <div className={`text-white text-xs sm:text-sm px-3 py-1 rounded inline-block w-max ${banca.color} mb-3`}>
                 {banca.status}
               </div>
-              <div className="space-x-3">
+              <div className="space-x-2">
                 {(banca.status === "Pendente" || banca.status === "Atrasado" || banca.status === "") && (
                   <Button
                     size="sm"
@@ -368,7 +367,7 @@ const handleCadastrarBanca = async (e) => {
                   </Button>
                 )}
               </div>
-              <div className="mt-4 space-x-3">
+              <div className="mt-3 space-x-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -409,12 +408,12 @@ const handleCadastrarBanca = async (e) => {
 
       {/* Formulário para cadastrar nova banca */}
       {showForm && (
-        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <form
             onSubmit={handleCadastrarBanca}
-            className="bg-white p-8 rounded-2xl w-full max-w-md space-y-6 shadow-lg"
+            className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4 shadow-lg overflow-auto max-h-full"
           >
-            <h2 className="text-2xl font-bold">Cadastrar Nova Banca</h2>
+            <h2 className="text-xl font-bold mb-4">Cadastrar Nova Banca</h2>
             <Input
               name="numero"
               placeholder="Número da banca"
@@ -429,9 +428,9 @@ const handleCadastrarBanca = async (e) => {
               className={numeroValido ? "border-green-500" : "border-red-500"}
             />
             <Input name="proprietario" placeholder="Nome do proprietário" />
-            <div className="flex justify-end gap-4">
-              <Button type="submit" className="w-full max-w-xs">Salvar</Button>
-              <Button variant="outline" onClick={() => setShowForm(false)} className="w-full max-w-xs">Cancelar</Button>
+            <div className="flex flex-col sm:flex-row justify-end gap-4">
+              <Button type="submit" className="w-full sm:w-auto">Salvar</Button>
+              <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
             </div>
           </form>
         </div>
@@ -439,12 +438,12 @@ const handleCadastrarBanca = async (e) => {
 
       {/* Formulário para cadastrar novo usuário, visível só para felipe@ipu.com */}
       {showUserRegisterForm && (
-        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center z-50">
+        <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <form
             onSubmit={handleUserRegister}
-            className="bg-white p-8 rounded-2xl w-full max-w-md space-y-6 shadow-lg"
+            className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4 shadow-lg overflow-auto max-h-full"
           >
-            <h2 className="text-2xl font-bold">Cadastrar Novo Usuário</h2>
+            <h2 className="text-xl font-bold mb-4">Cadastrar Novo Usuário</h2>
             <Input
               type="email"
               name="email"
@@ -469,9 +468,9 @@ const handleCadastrarBanca = async (e) => {
               value={newUserFullName}
               onChange={(e) => setNewUserFullName(e.target.value)}
             />
-            <div className="flex justify-end gap-4">
-              <Button type="submit" className="w-full max-w-xs">Cadastrar</Button>
-              <Button variant="outline" onClick={() => setShowUserRegisterForm(false)} className="w-full max-w-xs">Cancelar</Button>
+            <div className="flex flex-col sm:flex-row justify-end gap-4">
+              <Button type="submit" className="w-full sm:w-auto">Cadastrar</Button>
+              <Button variant="outline" onClick={() => setShowUserRegisterForm(false)} className="w-full sm:w-auto">Cancelar</Button>
             </div>
           </form>
         </div>
@@ -494,15 +493,15 @@ const handleCadastrarBanca = async (e) => {
 
         return (
           <>
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-8 rounded-2xl w-full max-w-md space-y-6 shadow-lg relative">
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
+              <div className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4 shadow-lg relative">
                 <button
                   className="absolute top-4 right-4 text-gray-600 hover:text-gray-900"
                   onClick={() => setShowDetails(false)}
                 >
                   &times;
                 </button>
-                <h2 className="text-2xl font-bold mb-4">Detalhes da Banca</h2>
+                <h2 className="text-xl font-bold mb-4">Detalhes da Banca</h2>
                 <p><strong>Número da Banca:</strong> {selectedBanca.numero}</p>
                 {selectedBanca.proprietario && (
                   <p><strong>Nome do Proprietário:</strong> {selectedBanca.proprietario}</p>
@@ -518,7 +517,7 @@ const handleCadastrarBanca = async (e) => {
                     <p><strong>Valor Total a Pagar:</strong> R$ {totalDue.toFixed(2)}</p>
                   </>
                 )}
-                <div className="flex justify-end mt-6">
+                <div className="flex justify-end mt-4">
                   <Button
                     onClick={() => {
                       printComprovante(selectedBanca);
@@ -533,10 +532,10 @@ const handleCadastrarBanca = async (e) => {
         );
       })()}
       {isEditing && selectedBanca && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
           <form
             onSubmit={handleSalvarEdicao}
-            className="bg-white p-8 rounded-2xl w-full max-w-md space-y-6 shadow-lg relative"
+            className="bg-white p-6 rounded-2xl w-full max-w-md space-y-4 shadow-lg relative"
           >
             <button
               type="button"
@@ -545,7 +544,7 @@ const handleCadastrarBanca = async (e) => {
             >
               &times;
             </button>
-            <h2 className="text-2xl font-bold mb-4">Editar Banca</h2>
+            <h2 className="text-xl font-bold mb-4">Editar Banca</h2>
             <Input
               name="numero"
               placeholder="Número da banca"
@@ -569,13 +568,13 @@ const handleCadastrarBanca = async (e) => {
               onChange={(e) => setEditAluguel(e.target.value)}
               required
             />
-            <div className="flex justify-end gap-4">
-              <Button type="submit" className="w-full max-w-xs">Salvar</Button>
+            <div className="flex flex-col sm:flex-row justify-end gap-4">
+              <Button type="submit" className="w-full sm:w-auto">Salvar</Button>
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setIsEditing(false)}
-                className="w-full max-w-xs"
+                className="w-full sm:w-auto"
               >
                 Cancelar
               </Button>
