@@ -1,14 +1,12 @@
 {
     "name": "feira-bancas-app",
     "version": "1.0.0",
-    "description": "Gerenciamento de Bancas React App",
-    "main": "src/pages/FeiraApp.jsx",
+    "private": true,
     "scripts": {
         "start": "react-scripts start",
         "build": "react-scripts build",
         "test": "react-scripts test",
-        "eject": "react-scripts eject",
-        "dev": "react-scripts start"
+        "eject": "react-scripts eject"
     },
     "dependencies": {
         "firebase": "^9.0.0",
@@ -16,9 +14,6 @@
         "react-dom": "^18.0.0",
         "react-scripts": "5.0.1"
     },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
     "browserslist": {
         "production": [
             ">0.2%",

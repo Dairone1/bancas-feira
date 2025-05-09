@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+                                   import React, { useEffect, useState } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -89,23 +89,18 @@ export default function FeiraApp() {
   };
 
   // Novo estado para controle do formulário de cadastro de usuários
-  const [showUserRegisterForm, setShowUserRegisterForm] = useState(false);
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserFullName, setNewUserFullName] = useState("");
+  // Removido do componente principal para dentro do UsersPage
 
   // Novo estado para controle da página de usuários cadastrados
   const [showUsersPage, setShowUsersPage] = useState(false);
   const [usuarios, setUsuarios] = useState([]);
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [userRecebimentos, setUserRecebimentos] = useState([]);
 
   // Estados para edição de usuário
-  const [isEditingUser, setIsEditingUser] = useState(false);
-  const [editUserEmail, setEditUserEmail] = useState("");
-  const [editUserFullName, setEditUserFullName] = useState("");
-  const [editUserPassword, setEditUserPassword] = useState("");
+  // Removido do componente principal para dentro do UsersPage
+
+  // Funções fetchUsuarios e fetchUserRecebimentos permanecem aqui para passar como props
 
   useEffect(() => {
     async function createDefaultUser() {
@@ -202,7 +197,7 @@ export default function FeiraApp() {
                 text-align: center;
               }
               .numero-banca {
-                font-size: 22px;
+                font-size: 28px;
                 font-weight: bold;
                 margin-bottom: 6px;
               }
@@ -210,12 +205,12 @@ export default function FeiraApp() {
                 margin-top: 6px;
               }
               .comprovante p:first-child {
-                font-size: 16px;
+                font-size: 20px;
                 font-weight: bold;
                 margin: 0;
               }
               .comprovante p:nth-child(2) {
-                font-size: 22px;
+                font-size: 18px;
                 font-weight: bold;
                 margin: 0;
               }
@@ -450,6 +445,15 @@ const printComprovante = async (banca, paymentMethod) => {
   // Componente para exibir usuários cadastrados e seus recebimentos
   const UsersPage = () => {
     const [searchRecebimentos, setSearchRecebimentos] = useState("");
+    const [showUserRegisterForm, setShowUserRegisterForm] = useState(false);
+    const [newUserEmail, setNewUserEmail] = useState("");
+    const [newUserPassword, setNewUserPassword] = useState("");
+    const [newUserFullName, setNewUserFullName] = useState("");
+    const [isEditingUser, setIsEditingUser] = useState(false);
+    const [editUserEmail, setEditUserEmail] = useState("");
+    const [editUserFullName, setEditUserFullName] = useState("");
+    const [editUserPassword, setEditUserPassword] = useState("");
+    const [selectedUser, setSelectedUser] = useState(null);
 
     const filteredRecebimentos = userRecebimentos.filter((rec) => {
       const bancaStr = rec.bancaNumero ? rec.bancaNumero.toString() : "";
@@ -460,8 +464,96 @@ const printComprovante = async (banca, paymentMethod) => {
 
     return (
       <div>
-        <h2 className="text-2xl font-bold mb-4">Usuários Cadastrados</h2>
-        {loadingUsuarios ? (
+        <h2 className="text-2xl font-bold mb-4 flex justify-between items-center">
+          Usuários Cadastrados
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => setShowUserRegisterForm(true)}
+          >
+            Cadastrar Novo Usuário
+          </Button>
+        </h2>
+        {showUserRegisterForm ? (
+          <div className="fixed inset-0 flex items-center justify-center bg-gray-50 p-4 z-50">
+            <div className="relative max-w-md w-full p-8 bg-white rounded-3xl shadow-2xl border border-gray-300">
+              <h3 className="text-2xl font-extrabold mb-6 text-center text-blue-700 tracking-wide drop-shadow-md">Cadastrar Novo Usuário</h3>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      // Salvar usuário atual para restaurar após criação do novo usuário
+                      const currentUser = auth.currentUser;
+
+                      const userCredential = await createUserWithEmailAndPassword(
+                        auth,
+                        newUserEmail,
+                        newUserPassword
+                      );
+                      const newUser = userCredential.user;
+                      // Salvar nome completo no Firestore
+                      await addDoc(collection(db, "usuarios"), {
+                        uid: newUser.uid,
+                        email: newUserEmail,
+                        fullName: newUserFullName,
+                      });
+
+                      // Após criar o usuário, fazer logout do usuário criado e alertar para login manual
+                      if (currentUser && currentUser.email !== newUserEmail) {
+                        await signOut(auth);
+                        alert("Usuário criado com sucesso. Por favor, faça login novamente com seu usuário original.");
+                      }
+
+                      setShowUserRegisterForm(false);
+                      setNewUserEmail("");
+                      setNewUserPassword("");
+                      setNewUserFullName("");
+                      fetchUsuarios();
+                    } catch (error) {
+                      alert("Erro ao cadastrar usuário: " + error.message);
+                    }
+                  }}
+                  className="space-y-6"
+                >
+                  <Input
+                    type="email"
+                    placeholder="Email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    required
+                    className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                  />
+                <Input
+                  type="password"
+                  placeholder="Senha"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  required
+                  className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                />
+                <Input
+                  type="text"
+                  placeholder="Nome Completo"
+                  value={newUserFullName}
+                  onChange={(e) => setNewUserFullName(e.target.value)}
+                  className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                />
+                <div className="flex space-x-4">
+                  <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl shadow-lg transition">
+                    Cadastrar
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-4 rounded-xl shadow-lg transition"
+                    onClick={() => setShowUserRegisterForm(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : loadingUsuarios ? (
           <p>Carregando usuários...</p>
         ) : (
           <>
@@ -515,7 +607,7 @@ const printComprovante = async (banca, paymentMethod) => {
                 </Card>
               ))}
             </div>
-            {selectedUser && (
+            {selectedUser && isEditingUser && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
                 <div className="bg-white p-6 rounded-2xl w-full max-w-lg space-y-4 shadow-lg relative">
                   <button
@@ -523,71 +615,71 @@ const printComprovante = async (banca, paymentMethod) => {
                     onClick={() => {
                       setSelectedUser(null);
                       setUserRecebimentos([]);
+                      setIsEditingUser(false);
                     }}
                   >
                     &times;
                   </button>
-                  <h3 className="text-xl font-bold mb-4">Histórico de Recebimentos de {selectedUser.fullName || selectedUser.email}</h3>
-                  <input
-                    type="text"
-                    placeholder="Buscar por banca ou data"
-                    value={searchRecebimentos}
-                    onChange={(e) => setSearchRecebimentos(e.target.value)}
-                    className="mb-4 w-full p-2 border border-gray-300 rounded"
-                  />
-                  {filteredRecebimentos.length === 0 ? (
-                    <p>Nenhum recebimento encontrado para este usuário.</p>
-                  ) : (
-                    <ul className="max-h-96 overflow-auto space-y-2">
-                      {filteredRecebimentos.map((rec) => (
-                        <li key={rec.id} className="border-b border-gray-300 py-2">
-                          <div className="p-2 bg-gray-50">
-                            <p><strong>Banca</strong></p>
-                            <p><strong>Nº:</strong> {rec.bancaNumero || "N/A"}</p>
-                            <p><strong>Data:</strong> {rec.data ? new Date(rec.data).toLocaleDateString() : "N/A"}</p>
-                            <p><strong>Valor Pago:</strong> R$ {rec.valorPago || "N/A"}</p>
-                            <p><strong>Método de Pagamento:</strong> {rec.paymentMethod ? rec.paymentMethod.charAt(0).toUpperCase() + rec.paymentMethod.slice(1) : "N/A"}</p>
-                            <p><strong>Recebido por:</strong> {selectedUser ? (selectedUser.fullName || selectedUser.email) : "N/A"}</p>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="mt-2"
-                              onClick={() => {
-                                // Função para imprimir o comprovante
-                                const printWindow = window.open("", "_blank");
-                                if (printWindow) {
-                                  const content = rec.comprovanteHtml || `
-                                    <html>
-                                      <head>
-                                        <title>Comprovante de Pagamento</title>
-                                      </head>
-                                      <body>
-                                        <h2>Comprovante de Pagamento</h2>
-                                        <p><strong>Banca Nº:</strong> ${rec.bancaNumero || "N/A"}</p>
-                                        <p><strong>Data:</strong> ${rec.data ? new Date(rec.data).toLocaleDateString() : "N/A"}</p>
-                                        <p><strong>Valor Pago:</strong> R$ ${rec.valorPago || "N/A"}</p>
-                                        <p><strong>Método de Pagamento:</strong> ${rec.paymentMethod ? rec.paymentMethod.charAt(0).toUpperCase() + rec.paymentMethod.slice(1) : "N/A"}</p>
-                                        <p><strong>Recebido por:</strong> ${selectedUser ? (selectedUser.fullName || selectedUser.email) : "N/A"}</p>
-                                      </body>
-                                    </html>
-                                  `;
-                                  printWindow.document.write(content);
-                                  printWindow.document.close();
-                                  printWindow.focus();
-                                  printWindow.print();
-                                  printWindow.close();
-                                } else {
-                                  alert("Não foi possível abrir a janela de impressão.");
-                                }
-                              }}
-                            >
-                              Imprimir Comprovante
-                            </Button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <h3 className="text-xl font-bold mb-4">Editar Usuário {selectedUser.fullName || selectedUser.email}</h3>
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      try {
+                        const userRef = doc(db, "usuarios", selectedUser.id);
+                        await updateDoc(userRef, {
+                          email: editUserEmail,
+                          fullName: editUserFullName,
+                          // Password update handled separately
+                        });
+                        if (editUserPassword) {
+                          const currentUser = auth.currentUser;
+                          if (currentUser) {
+                            await updatePassword(currentUser, editUserPassword);
+                          }
+                        }
+                        setIsEditingUser(false);
+                        setSelectedUser(null);
+                        fetchUsuarios();
+                      } catch (err) {
+                        alert("Erro ao atualizar usuário: " + err.message);
+                      }
+                    }}
+                    className="space-y-4"
+                  >
+                    <Input
+                      type="email"
+                      value={editUserEmail}
+                      onChange={(e) => setEditUserEmail(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                    />
+                    <Input
+                      type="text"
+                      value={editUserFullName}
+                      onChange={(e) => setEditUserFullName(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                    />
+                    <Input
+                      type="password"
+                      value={editUserPassword}
+                      onChange={(e) => setEditUserPassword(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
+                    />
+                    <div className="flex justify-between">
+                      <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition">
+                        Salvar
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setIsEditingUser(false);
+                          setSelectedUser(null);
+                        }}
+                        className="bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-2 px-4 rounded-lg shadow-md transition"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}
@@ -743,12 +835,14 @@ const printComprovante = async (banca, paymentMethod) => {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full mb-6 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
               />
-              <Button
-                onClick={() => setShowUsersPage(true)}
-                className="mb-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg shadow-md transition"
-              >
-                Gerenciar Usuários
-              </Button>
+              {user && user.email === "felipe@ipu.com" && (
+                <Button
+                  onClick={() => setShowUsersPage(true)}
+                  className="mb-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg shadow-md transition"
+                >
+                  Gerenciar Usuários
+                </Button>
+              )}
               {showForm ? (
                 <form onSubmit={handleCadastrarBanca} className="space-y-4">
                   <h3 className="text-xl font-semibold mb-4 text-gray-800">Cadastrar Nova Banca</h3>
