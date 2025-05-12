@@ -4,6 +4,7 @@ import {
   getFirestore,
   collection,
   getDocs,
+  getDoc,
   addDoc,
   doc,
   updateDoc,
@@ -21,13 +22,13 @@ import Card from "../components/ui/Card";
 import Input from "../components/ui/Input";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAFowVRdlWTYrugkSk7RBXFby2yOTgAbew",
-  authDomain: "gremio-bancas.firebaseapp.com",
-  projectId: "gremio-bancas",
-  storageBucket: "gremio-bancas.firebasestorage.app",
-  messagingSenderId: "727835700442",
-  appId: "1:727835700442:web:90bb4e5a9e9b490a7a09e3",
-  measurementId: "G-XCY47NZGF9"
+  apiKey: "AIzaSyB1Ks1ejpmrbDjihzx9OmnWsO7_oTMu_SA",
+  authDomain: "controle-de-bancas.firebaseapp.com",
+  projectId: "controle-de-bancas",
+  storageBucket: "controle-de-bancas.firebasestorage.app",
+  messagingSenderId: "218421342868",
+  appId: "1:218421342868:web:afe611e4adaf2606563a81",
+  measurementId: "G-37T1XD08B0"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -91,6 +92,7 @@ export default function FeiraApp() {
   const [loadingUsuarios, setLoadingUsuarios] = useState(false);
   const [userRecebimentos, setUserRecebimentos] = useState([]);
   const [showUserRecebimentos, setShowUserRecebimentos] = useState(false);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     async function createDefaultUser() {
@@ -151,14 +153,21 @@ export default function FeiraApp() {
       console.log("Salvando recebimento para usuário:", userId);
       const recebimentosRef = collection(db, "usuarios", userId, "recebimentos");
       const now = new Date();
+      // Garantir que o valorPago seja sempre 25.00
+      const valorPago = 25.00;
+      const paymentMethodNormalized = paymentMethod ? paymentMethod.toString().toLowerCase() : null;
       await addDoc(recebimentosRef, {
         bancaNumero: banca.numero,
-        valorPago: "25.00",
+        valorPago: valorPago,
         data: now.toISOString(),
-        paymentMethod: paymentMethod || null,
+        paymentMethod: paymentMethodNormalized,
         comprovanteHtml: comprovanteHtml || null,
       });
       console.log("Recebimento salvo com sucesso");
+      // Atualizar o estado userRecebimentos após salvar
+      if (userId) {
+        fetchUserRecebimentos(userId);
+      }
     } catch (err) {
       console.error("Erro ao salvar recebimento:", err);
       alert("Erro ao salvar recebimento: " + err.message);
@@ -267,8 +276,8 @@ export default function FeiraApp() {
       }, 500);
     };
 
-    // Salvar no histórico de recebimentos
-    await saveRecebimento(user.uid, banca, paymentMethod);
+    // Removida a chamada duplicada para saveRecebimento para evitar valor duplicado
+    // await saveRecebimento(user.uid, banca, paymentMethod);
   };
 
   const fetchBancas = async () => {
@@ -457,6 +466,18 @@ export default function FeiraApp() {
       return bancaStr.toLowerCase().includes(searchLower) || dataStr.toLowerCase().includes(searchLower);
     });
 
+    // Calcular totais por método de pagamento e total geral
+    const totalPix = userRecebimentos
+      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "pix")
+      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
+    const totalDinheiro = userRecebimentos
+      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "dinheiro")
+      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
+    const totalCartao = userRecebimentos
+      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "cartão")
+      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
+    const totalGeral = totalPix + totalDinheiro + totalCartao;
+
     const handleUserUpdate = async (e) => {
       e.preventDefault();
       if (!selectedUser) return;
@@ -588,7 +609,9 @@ export default function FeiraApp() {
         ) : showUserRecebimentos ? (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 p-4 z-50">
             <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 overflow-auto max-h-[80vh]">
-              <h3 className="text-2xl font-bold mb-6 text-center">Histórico de Recebimentos</h3>
+              <h3 className="text-2xl font-bold mb-6 text-center">
+                Histórico de Recebimentos - {userName}
+              </h3>
               <Input
                 type="text"
                 placeholder="Buscar no histórico"
@@ -596,6 +619,14 @@ export default function FeiraApp() {
                 onChange={(e) => setSearchRecebimentos(e.target.value)}
                 className="mb-6 w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
               />
+              <div className="mb-6 p-4 border border-gray-300 rounded-lg shadow-sm bg-gray-50">
+                <h4 className="text-lg font-semibold mb-2">Totais Recebidos</h4>
+                <p className="text-sm italic mb-2">Usuário: {selectedUser ? `${selectedUser.email} (ID: ${selectedUser.uid || selectedUser.id})` : "Nenhum usuário selecionado"}</p>
+                <p className="text-xl font-bold text-blue-700">Total Geral: R$ {totalGeral.toFixed(2)}</p>
+                <p>Total em Pix: R$ {totalPix.toFixed(2)}</p>
+                <p>Total em Dinheiro: R$ {totalDinheiro.toFixed(2)}</p>
+                <p>Total em Cartão: R$ {totalCartao.toFixed(2)}</p>
+              </div>
               {searchRecebimentos.trim() === "" ? (
                 <p className="text-center text-gray-600">Digite uma data ou número da banca para buscar no histórico.</p>
               ) : filteredRecebimentos.length === 0 ? (
@@ -608,6 +639,8 @@ export default function FeiraApp() {
                       <p>Data: {new Date(rec.data).toLocaleDateString()}</p>
                       <p>Valor Pago: R$ {parseFloat(rec.valorPago).toFixed(2)}</p>
                       <p>Método de Pagamento: {rec.paymentMethod || "Não informado"}</p>
+                      <div className="mt-2 flex space-x-2">
+                      </div>
                     </Card>
                   ))}
                 </div>
@@ -615,52 +648,6 @@ export default function FeiraApp() {
               <div className="mt-6 flex justify-center">
                 <Button onClick={() => setShowUserRecebimentos(false)}>Voltar</Button>
               </div>
-            </div>
-          </div>
-        ) : isEditingUser ? (
-          <div className="fixed inset-0 flex items-center justify-center bg-gray-50 p-4 z-50">
-            <div className="relative max-w-md w-full p-8 bg-white rounded-3xl shadow-2xl border border-gray-300">
-              <h3 className="text-2xl font-extrabold mb-6 text-center text-blue-700 tracking-wide drop-shadow-md">Editar Usuário</h3>
-              <form onSubmit={handleUserUpdate} className="space-y-6">
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  value={editUserEmail}
-                  onChange={(e) => setEditUserEmail(e.target.value)}
-                  required
-                  disabled
-                  className="w-full px-5 py-4 border border-gray-300 rounded-xl bg-gray-100 cursor-not-allowed focus:outline-none"
-                />
-                <Input
-                  type="text"
-                  placeholder="Nova Senha (deixe em branco para não alterar)"
-                  value={editUserPassword}
-                  onChange={(e) => setEditUserPassword(e.target.value)}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
-                />
-                <Input
-                  type="text"
-                  placeholder="Nome Completo"
-                  value={editUserFullName}
-                  onChange={(e) => setEditUserFullName(e.target.value)}
-                  className="w-full px-5 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-400 transition"
-                />
-                <div className="flex space-x-4">
-                  <Button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-4 rounded-xl shadow-lg transition">
-                    Salvar
-                  </Button>
-                  <Button
-                    type="button"
-                    className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 font-semibold py-4 rounded-xl shadow-lg transition"
-                    onClick={() => {
-                      setIsEditingUser(false);
-                      setSelectedUser(null);
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </form>
             </div>
           </div>
         ) : (
@@ -690,6 +677,7 @@ export default function FeiraApp() {
                       variant="outline"
                       onClick={() => {
                         setSelectedUser(usuario);
+                        setUserName(usuario.email || "");
                         setShowUserRecebimentos(true);
                         fetchUserRecebimentos(usuario.uid || usuario.id);
                       }}
@@ -1000,4 +988,5 @@ export default function FeiraApp() {
     </div>
   );
 }
+
 
