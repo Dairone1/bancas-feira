@@ -381,22 +381,24 @@ export default function FeiraApp() {
       alert("Selecione um usuário para pagamento antes de continuar.");
       return;
     }
-    setPaymentMethod(method);
+    // Normalizar método de pagamento antes de usar
+    const methodNormalized = method ? method.toString().trim().toLowerCase() : null;
+    setPaymentMethod(methodNormalized);
     setShowPaymentMethodModal(false);
     // Imprimir comprovante imediatamente após selecionar o método de pagamento
     try {
       const bancaRef = doc(db, "bancas", bancaParaPagamento.id);
-      await updateDoc(bancaRef, { status: "Pago", paymentMethod: method });
+      await updateDoc(bancaRef, { status: "Pago", paymentMethod: methodNormalized });
       console.log("Status da banca atualizado para Pago");
       fetchBancas();
-      const comprovanteHtml = generatePrintContent(bancaParaPagamento, usuarioParaPagamento, method);
+      const comprovanteHtml = generatePrintContent(bancaParaPagamento, usuarioParaPagamento, methodNormalized);
       // Salvar recebimento apenas uma vez
       if (!usuarioParaPagamento.recebimentoSalvo) {
-        await saveRecebimento(usuarioParaPagamento.id || usuarioParaPagamento.uid, bancaParaPagamento, method, comprovanteHtml);
+        await saveRecebimento(usuarioParaPagamento.id || usuarioParaPagamento.uid, bancaParaPagamento, methodNormalized, comprovanteHtml);
         usuarioParaPagamento.recebimentoSalvo = true;
       }
       // Chamar printComprovante para imprimir diretamente sem abrir outra página
-      printComprovante(bancaParaPagamento, method);
+      printComprovante(bancaParaPagamento, methodNormalized);
     } catch (err) {
       if (err.code === "permission-denied") {
         alert("Permissão negada: você não tem autorização para alterar o status.");
@@ -468,15 +470,15 @@ export default function FeiraApp() {
 
     // Calcular totais por método de pagamento e total geral
     const totalPix = userRecebimentos
-      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "pix")
-      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
-    const totalDinheiro = userRecebimentos
-      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "dinheiro")
-      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
-    const totalCartao = userRecebimentos
-      .filter(rec => rec.paymentMethod && rec.paymentMethod.toLowerCase() === "cartão")
-      .reduce((sum, rec) => sum + parseFloat(rec.valorPago || 0), 0);
-    const totalGeral = totalPix + totalDinheiro + totalCartao;
+      .filter(rec => rec.paymentMethod && rec.paymentMethod.toString().trim().toLowerCase() === "pix")
+     .reduce((sum, rec) => sum + parseFloat((rec.valorPago || "0").toString().replace(",", ".")), 0);
+   const totalDinheiro = userRecebimentos
+     .filter(rec => rec.paymentMethod && rec.paymentMethod.toString().trim().toLowerCase() === "dinheiro")
+     .reduce((sum, rec) => sum + parseFloat((rec.valorPago || "0").toString().replace(",", ".")), 0);
+   const totalCartao = userRecebimentos
+     .filter(rec => rec.paymentMethod && rec.paymentMethod.toString().trim().toLowerCase() === "cartão")
+     .reduce((sum, rec) => sum + parseFloat((rec.valorPago || "0").toString().replace(",", ".")), 0);
+   const totalGeral = totalPix + totalDinheiro + totalCartao;
 
     const handleUserUpdate = async (e) => {
       e.preventDefault();
@@ -861,7 +863,6 @@ export default function FeiraApp() {
               Gerenciar Usuários
             </Button>
           )}
-          {console.log("Usuário atual:", user ? user.email : "Nenhum usuário autenticado")}
               {showForm ? (
                 <form onSubmit={handleCadastrarBanca} className="space-y-4">
                   <h3 className="text-xl font-semibold mb-4 text-gray-800">Cadastrar Nova Banca</h3>
@@ -988,5 +989,3 @@ export default function FeiraApp() {
     </div>
   );
 }
-
-
